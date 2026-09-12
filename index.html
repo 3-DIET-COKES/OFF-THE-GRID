@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OFF THE GRID</title>
+    
+    <!-- Vollkorn SC Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vollkorn+SC:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- MapLibre GL JS CSS & JS -->
+    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+    <style>
+        /* GLOBAL AND CANVAS SETUP */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #020637;
+            font-family: 'Vollkorn SC', serif;
+        }
+
+        /* Full Screen Stage Container */
+        .stage {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: #020637;
+            overflow: hidden;
+            transition: opacity 0.8s ease;
+        }
+
+        .stage.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Deep Space Background Layer */
+        .space-bg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            left: 0;
+            top: 0;
+            background: radial-gradient(ellipse at center, #0b0f29 0%, #010314 100%);
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        /* Subtle Starry Field Effect */
+        .space-bg::after {
+            content: "";
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            top: -50%;
+            left: -50%;
+            background-image: 
+                radial-gradient(1px 1px at 20px 30px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 40px 70px, rgba(255,255,255,0.8), rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 90px 40px, rgba(255,255,255,0.6), rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 130px 80px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(1.5px 1.5px at 160px 120px, rgba(255,255,255,0.7), rgba(0,0,0,0));
+            background-repeat: repeat;
+            background-size: 200px 200px;
+            opacity: 0.4;
+            animation: starDrift 60s linear infinite;
+        }
+
+        @keyframes starDrift {
+            0% {
+                transform: translateY(0);
+            }
+            100% {
+                transform: translateY(100px);
+            }
+        }
+
+        /* World Map Left-to-Right Unroll with Original Yellow Overtone */
+        .world-map {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            left: 0;
+            top: 0;
+            background: url('very-high-quality-10000x5268px-no-borders-world-map-but-v0-z7mxzmiohwsc1.webp') no-repeat center/cover;
+            background-color: #2980b9;
+            filter: sepia(0.45) saturate(1.1) brightness(1.25) contrast(1.1) hue-rotate(25deg);
+            -webkit-mask-image: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 1) 40%, rgba(0, 0, 0, 0.75) 100%);
+            mask-image: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 1) 40%, rgba(0, 0, 0, 0.75) 100%);
+            z-index: 2;
+            opacity: 0;
+            transform-origin: left center;
+            transform: scaleX(0);
+            animation: mapFastUnroll 0.3s ease-out 1.0s forwards;
+        }
+
+        @keyframes mapFastUnroll {
+            0% {
+                opacity: 0;
+                transform: scaleX(0);
+            }
+            10% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 1;
+                transform: scaleX(1);
+            }
+        }
+
+        /* Red Grid Lines */
+        .red-grid {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            left: 0;
+            top: 0;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .grid-line {
+            stroke: #EA0004;
+            stroke-width: 2;
+            vector-effect: non-scaling-stroke;
+            stroke-dasharray: 2000;
+            stroke-dashoffset: 2000;
+            animation: drawGrid 1.5s cubic-bezier(0.4, 0, 0.2, 1) 2.1s forwards;
+        }
+
+        @keyframes drawGrid {
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+
+        /* Dark Overlay with Custom Settings */
+        .dark-overlay {
+            position: absolute;
+            width: 1600px;
+            height: 1024px;
+            left: 1px;
+            top: 0px;
+            background: radial-gradient(50% 50% at 50% 50%, rgba(32, 0, 210, 0.23) 0%, rgba(6, 0, 37, 0.23) 100%);
+            z-index: 4;
+            opacity: 0;
+            animation: fadeInOverlay 1.5s ease-in-out 2.1s forwards;
+        }
+
+        @keyframes fadeInOverlay {
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* OFF THE GRID TITLE AND ANIMATION */
+        .title-container {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 5;
+        }
+
+        .bouncing-title {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.2vw;
+            white-space: nowrap;
+        }
+
+        .bouncing-title span {
+            display: inline-block;
+            font-family: 'Vollkorn SC', serif;
+            font-style: normal;
+            font-weight: 400;
+            font-size: min(8vw, 120px);
+            line-height: 1;
+            color: #431d06;
+            -webkit-text-stroke: 1px #000000;
+            text-shadow: 0px 4px 14px rgba(0, 0, 0, 0.85);
+            opacity: 0;
+            transform: translateY(-100px) scale(0.3);
+            animation: letterPopBounce 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .bouncing-title span.space {
+            width: min(3vw, 40px);
+        }
+
+        .bouncing-title span:nth-child(1)  { animation-delay: 4.0s; }
+        .bouncing-title span:nth-child(2)  { animation-delay: 4.1s; }
+        .bouncing-title span:nth-child(3)  { animation-delay: 4.2s; }
+        .bouncing-title span:nth-child(4)  { animation-delay: 4.3s; }
+        .bouncing-title span:nth-child(5)  { animation-delay: 4.4s; }
+        .bouncing-title span:nth-child(6)  { animation-delay: 4.5s; }
+        .bouncing-title span:nth-child(7)  { animation-delay: 4.6s; }
+        .bouncing-title span:nth-child(8)  { animation-delay: 4.7s; }
+        .bouncing-title span:nth-child(9)  { animation-delay: 4.8s; }
+        .bouncing-title span:nth-child(10) { animation-delay: 4.9s; }
+        .bouncing-title span:nth-child(11) { animation-delay: 5.0s; }
+        .bouncing-title span:nth-child(12) { animation-delay: 5.1s; }
+
+        @keyframes letterPopBounce {
+            0% {
+                opacity: 0;
+                transform: translateY(-120px) scale(0.3);
+            }
+            70% {
+                opacity: 1;
+                transform: translateY(20px) scale(1.1);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* CENTERED BEGIN BUTTON */
+        .begin-btn-wrapper {
+            position: absolute;
+            width: min(20vw, 260px);
+            height: min(8vw, 80px);
+            left: 50%;
+            top: 62%;
+            transform: translate(-50%, 40px);
+            z-index: 6;
+            opacity: 0;
+            animation: buttonEaseIn 1s cubic-bezier(0.25, 1, 0.5, 1) 5.5s forwards;
+        }
+
+        .begin-btn {
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(50% 180.1% at 50% 50%, #6D2A00 0%, #3B1802 99.99%);
+            border: 3px solid #000000;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.7);
+            transition: transform 0.2s ease, filter 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-decoration: none;
+        }
+
+        .begin-btn:hover {
+            transform: scale(1.04);
+            filter: brightness(1.15);
+        }
+
+        .begin-btn:active {
+            transform: scale(0.98);
+        }
+
+        .begin-text {
+            font-family: 'Vollkorn SC', serif;
+            font-style: normal;
+            font-weight: 400;
+            font-size: min(4vw, 50px);
+            line-height: 1;
+            letter-spacing: -0.05em;
+            color: #000000;
+            user-select: none;
+        }
+
+        @keyframes buttonEaseIn {
+            to {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+        }
+
+        /* MAPLIBRE DASHBOARD STYLES */
+        #dashboard {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 10;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.8s ease, visibility 0.8s ease;
+        }
+
+        #dashboard.active {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Top-Left Header Title on Second Map */
+        .map-corner-title {
+            position: absolute;
+            top: 25px;
+            left: 30px;
+            z-index: 20;
+            font-family: 'Vollkorn SC', serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: #431d06;
+            -webkit-text-stroke: 1px #000000;
+            text-shadow: 0px 3px 10px rgba(0, 0, 0, 0.7);
+            user-select: none;
+            pointer-events: none;
+        }
+
+        /* HUD Panel */
+        .hud-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid #ffffff;
+            border-radius: 8px;
+            padding: 16px 20px;
+            color: #ffffff;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            min-width: 260px;
+        }
+
+        .hud-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 8px;
+        }
+
+        .back-arrow-btn {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-size: 1.3rem;
+            font-weight: 300;
+            cursor: pointer;
+            line-height: 1;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease, transform 0.2s ease;
+            font-family: monospace;
+        }
+
+        .back-arrow-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(-2px);
+        }
+
+        .hud-title {
+            font-family: sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: #ffffff;
+            text-transform: uppercase;
+        }
+
+        .hud-coord {
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #cccccc;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Landing Animation Stage -->
+    <main class="stage" id="landingStage">
+        <!-- Deep Space Background Layer -->
+        <div class="space-bg"></div>
+
+        <div class="world-map"></div>
+
+        <svg class="red-grid" preserveAspectRatio="none" viewBox="0 0 100 100">
+            <line x1="10" y1="0" x2="10" y2="100" class="grid-line" />
+            <line x1="20" y1="0" x2="20" y2="100" class="grid-line" />
+            <line x1="30" y1="0" x2="30" y2="100" class="grid-line" />
+            <line x1="40" y1="0" x2="40" y2="100" class="grid-line" />
+            <line x1="50" y1="0" x2="50" y2="100" class="grid-line" />
+            <line x1="60" y1="0" x2="60" y2="100" class="grid-line" />
+            <line x1="70" y1="0" x2="70" y2="100" class="grid-line" />
+            <line x1="80" y1="0" x2="80" y2="100" class="grid-line" />
+            <line x1="90" y1="0" x2="90" y2="100" class="grid-line" />
+
+            <line x1="0" y1="16.66" x2="100" y2="16.66" class="grid-line" />
+            <line x1="0" y1="33.33" x2="100" y2="33.33" class="grid-line" />
+            <line x1="0" y1="50.00" x2="100" y2="50.00" class="grid-line" />
+            <line x1="0" y1="66.66" x2="100" y2="66.66" class="grid-line" />
+            <line x1="0" y1="83.33" x2="100" y2="83.33" class="grid-line" />
+        </svg>
+
+        <div class="dark-overlay"></div>
+
+        <div class="title-container">
+            <h1 class="bouncing-title">
+                <span>O</span><span>F</span><span>F</span>
+                <span class="space"></span>
+                <span>T</span><span>H</span><span>E</span>
+                <span class="space"></span>
+                <span>G</span><span>R</span><span>I</span><span>D</span>
+            </h1>
+        </div>
+
+        <div class="begin-btn-wrapper">
+            <button id="beginBtn" class="begin-btn">
+                <span class="begin-text">BEGIN</span>
+            </button>
+        </div>
+    </main>
+
+    <!-- MapLibre Map Dashboard -->
+    <section id="dashboard">
+        <div class="map-corner-title">OFF THE GRID</div>
+        
+        <div class="hud-panel">
+            <div class="hud-header">
+                <button id="backBtn" class="back-arrow-btn" title="Back to Menu">&larr;</button>
+                <div class="hud-title">SELECTED LOCATION</div>
+            </div>
+            <div id="latVal" class="hud-coord">LAT: Click map</div>
+            <div id="lngVal" class="hud-coord">LNG: Click map</div>
+        </div>
+        <div id="map"></div>
+    </section>
+
+    <script>
+        const beginBtn = document.getElementById('beginBtn');
+        const backBtn = document.getElementById('backBtn');
+        const landingStage = document.getElementById('landingStage');
+        const dashboard = document.getElementById('dashboard');
+
+        const latVal = document.getElementById('latVal');
+        const lngVal = document.getElementById('lngVal');
+
+        let map = null;
+        let marker = null;
+
+        function initMap() {
+            if (map) return;
+
+            map = new maplibregl.Map({
+                container: 'map',
+                style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+                center: [0, 20],
+                zoom: 2,
+                pitch: 0,
+                bearing: 0,
+                dragRotate: false,
+                pitchWithRotate: false,
+                touchPitch: false,
+                touchZoomRotate: false
+            });
+
+            map.addControl(new maplibregl.NavigationControl({
+                showCompass: false
+            }), 'top-right');
+
+            map.on('click', (e) => {
+                const { lng, lat } = e.lngLat;
+                setMarker(lng, lat);
+            });
+        }
+
+        function setMarker(lng, lat) {
+            latVal.textContent = `LAT: ${lat.toFixed(6)}`;
+            lngVal.textContent = `LNG: ${lng.toFixed(6)}`;
+
+            if (!marker) {
+                marker = new maplibregl.Marker({ color: '#EA0004', draggable: true })
+                    .setLngLat([lng, lat])
+                    .addTo(map);
+
+                marker.on('dragend', () => {
+                    const newLngLat = marker.getLngLat();
+                    latVal.textContent = `LAT: ${newLngLat.lat.toFixed(6)}`;
+                    lngVal.textContent = `LNG: ${newLngLat.lng.toFixed(6)}`;
+                });
+            } else {
+                marker.setLngLat([lng, lat]);
+            }
+        }
+
+        beginBtn.addEventListener('click', () => {
+            landingStage.classList.add('hidden');
+            setTimeout(() => {
+                dashboard.classList.add('active');
+                initMap();
+                if (map) map.resize();
+            }, 400);
+        });
+
+        backBtn.addEventListener('click', () => {
+            dashboard.classList.remove('active');
+            setTimeout(() => {
+                landingStage.classList.remove('hidden');
+            }, 400);
+        });
+    </script>
+</body>
+</html>
