@@ -1,13 +1,15 @@
 def calculate_battery_capacity(
     daily_load,
-    autonomy_days=2,
-    depth_of_discharge=0.9,
-    efficiency=0.95
+    autonomy_days,
+    depth_of_discharge,
+    efficiency
 ):
+
     battery_capacity = (
         daily_load
         * autonomy_days
-        / (
+        /
+        (
             depth_of_discharge
             * efficiency
         )
@@ -18,8 +20,9 @@ def calculate_battery_capacity(
 
 def calculate_minimum_soc(
     battery_capacity,
-    depth_of_discharge=0.9
+    depth_of_discharge
 ):
+
     minimum_soc = (
         battery_capacity
         * (1 - depth_of_discharge)
@@ -33,14 +36,16 @@ def charge_battery(
     generation,
     load,
     battery_capacity,
-    efficiency=0.95
+    efficiency
 ):
+
     net_energy = generation - load
 
     if net_energy > 0:
 
         stored_energy = (
-            net_energy * efficiency
+            net_energy
+            * efficiency
         )
 
         new_soc = (
@@ -53,6 +58,9 @@ def charge_battery(
 
     else:
 
-        new_soc = current_soc + net_energy
+        new_soc = (
+            current_soc
+            + net_energy
+        )
 
     return new_soc

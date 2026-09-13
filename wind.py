@@ -1,9 +1,11 @@
 def calculate_wind_power(
     wind_speed,
-    rated_speed=12,
-    cut_in_speed=3,
-    cut_out_speed=25
+    wind_capacity_kw,
+    cut_in_speed,
+    rated_speed,
+    cut_out_speed
 ):
+
     if wind_speed < cut_in_speed:
         return 0
 
@@ -11,72 +13,80 @@ def calculate_wind_power(
         return 0
 
     if wind_speed >= rated_speed:
-        return 1
+        return wind_capacity_kw
 
-    power_factor = (
-        (wind_speed ** 3 - cut_in_speed ** 3)
-        / (rated_speed ** 3 - cut_in_speed ** 3)
-    )
-
-    return power_factor
-
-
-def calculate_wind_energy(
-    wind_capacity_kw,
-    wind_speed
-):
-    power_factor = calculate_wind_power(
-        wind_speed
-    )
-
-    energy = (
+    power = (
         wind_capacity_kw
-        * power_factor
+        * (
+            wind_speed - cut_in_speed
+        )
+        / (
+            rated_speed - cut_in_speed
+        )
     )
 
-    return energy
+    return power
 
 
 def calculate_hourly_wind(
+    wind_speed,
     wind_capacity_kw,
-    hourly_wind_speed
+    cut_in_speed,
+    rated_speed,
+    cut_out_speed
 ):
-    wind_energy = []
 
-    for wind_speed in hourly_wind_speed:
+    hourly_wind = []
 
-        energy = calculate_wind_energy(
+    for speed in wind_speed:
+
+        power = calculate_wind_power(
+            speed,
             wind_capacity_kw,
-            wind_speed
+            cut_in_speed,
+            rated_speed,
+            cut_out_speed
         )
 
-        wind_energy.append(energy)
+        hourly_wind.append(power)
 
-    return wind_energy
+    return hourly_wind
 
 
 def calculate_required_wind(
     daily_load,
+    average_wind_speed,
     wind_fraction,
-    average_wind_speed
+    cut_in_speed,
+    rated_speed,
+    cut_out_speed
 ):
-    if average_wind_speed < 3:
+
+    if average_wind_speed < cut_in_speed:
         return 0
 
-    capacity_factor = (
-        average_wind_speed / 12
-    ) ** 3
+    if average_wind_speed >= cut_out_speed:
+        return 0
 
-    if capacity_factor < 0.05:
-        capacity_factor = 0.05
+    if average_wind_speed >= rated_speed:
+        power_factor = 1
+    else:
+        power_factor = (
+            average_wind_speed - cut_in_speed
+        ) / (
+            rated_speed - cut_in_speed
+        )
 
-    wind_energy_required = (
-        daily_load * wind_fraction
-    )
+    if power_factor <= 0:
+        return 0
 
     wind_capacity = (
-        wind_energy_required
-        / (24 * capacity_factor)
+        daily_load
+        * wind_fraction
+        / (
+            24
+            * power_factor
+        )
     )
 
     return wind_capacity

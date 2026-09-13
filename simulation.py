@@ -3,9 +3,9 @@ def simulate_24_hours(
     hourly_solar,
     hourly_wind,
     battery_capacity,
-    initial_soc=None,
-    depth_of_discharge=0.9,
-    battery_efficiency=0.95
+    initial_soc,
+    depth_of_discharge,
+    battery_efficiency
 ):
 
     if initial_soc is None:
@@ -54,7 +54,9 @@ def simulate_24_hours(
 
         else:
 
-            energy_needed = abs(net_energy)
+            energy_needed = abs(
+                net_energy
+            )
 
             available_energy = (
                 current_soc
